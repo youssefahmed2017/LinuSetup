@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "disk": {
+    "mode": "guided",
+    "device": "/dev/vda",
+    "scope": "wipe",
+    "fs": "xfs",
+    "home": {
+      "separate": true,
+      "root_gb": 20
+    }
+  },
+  "kernel_params": "console=tty0 console=ttyS0,115200 loglevel=3",
+  "users": [
+    {
+      "username": "tester",
+      "fullname": "E2E Tester",
+      "password": "e2e-Passw0rd",
+      "sudo": true
+    }
+  ],
+  "profiles": [
+    "minimal"
+  ],
+  "software": [],
+  "bluetooth": false,
+  "timezone": "UTC",
+  "mirrors": {
+    "mode": "auto"
+  },
+  "swap": {
+    "mode": "partition",
+    "size_gb": 1
+  },
+  "_e2e": {
+    "bios": true
+  },
+  "hostname": "e2e-bios"
+}

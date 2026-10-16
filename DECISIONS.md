@@ -1,120 +1,114 @@
-# LinuSetup: decisions and status (v0.1)
+# LinuSetup: decisions, verification and known risks
 
-Written while building unattended. Read this first if something misbehaves.
+Built unattended. Read this before the first real install.
 
-## What was verified, and what was NOT
+## What is verified, and how
 
-Verified on the dev machine (no sudo, no ISO build, no VM boot possible there):
+Nothing here was run as root, so **no real install, ISO build or ISO boot happened
+on the development machine**. Everything else was checked as directly as possible:
 
-- `make test`: 13 unit tests pass (plan building, validation, dry-run runner,
-  real-mode guard, and **every package name resolved against the host's pacman
-  repos, including multilib**).
-- `/usr/bin/python -c "import webview, gi"` works; `python -m linusetup --windowed
-  --dry-run` opens and runs 10 s with no errors on stderr.
-- All six UI screens rendered in headless Firefox (mock backend) and inspected.
-- `bash -n iso/build.sh`, `make -n` for every target, `node --check` on the JS.
+| Check | What it proves | Run it |
+|---|---|---|
+| Image tests (7) | The partition commands LinuSetup generates, applied by the **real `sgdisk`** to sparse disk images (blank, and a Windows-like ESP/MSR/NTFS/Recovery table), produce exactly the intended table. Partitions that are kept stay **byte-identical** (start, size, type, GUID, name); a shrunk Windows partition keeps its start, type, GUID and name. | `make test` |
+| Layout tests (20) | Every guided scope (erase / free space / shrink) and manual-editor rule, including refusals: BitLocker, MBR, too small, overlap, encrypted `/` without `/boot`, BIOS without `bios_grub`. | `make test` |
+| Plan matrix (300+ configs) | Every combination of firmware × filesystem × encryption × scope × swap × /home × boot loader builds a plan that keeps the ordering rules (partition → format → mount → pacstrap → chroot → unmount), never puts a secret in argv or logs, touches only the chosen disk, uses `sd-encrypt` iff `/` is encrypted, and completes as a dry run with monotonic progress. | `make test` |
+| Package resolution | Every profile, every driver, every VM tool set, an "everything at once" set and **the live ISO's own package list** resolve with `pacman -Sp` against an empty local DB (= a fresh disk, what pacstrap sees), plus a version-aware conflict check (pacman -Sp does not detect conflicts itself). The checker is itself tested on a real conflict. | `make test` |
+| Name tables | Console keymaps exist in kbd, XKB layouts/variants/options exist in xkb, locales exist in glibc. | `make test` |
+| systemd units | Every unit any plan enables (24 distinct) is shipped, per the repos' file lists, by a package that same plan installs. A wrong name would otherwise only fail at the very last install step. | `make filesdb && make test` |
+| API + CLI | Stale-disk refusal (fingerprints), validation, preview, config export strips every secret, `plan`/`check` commands. | `make test` |
+| UI self-test (13 steps) | The real UI is clicked through, Easy and Advanced, including manual partitioning, a double-click race and a back/forward race, in **headless Firefox at 1280×800, 1024×768, 800×600** and in the **real pywebview/WebKitGTK window inside a headless cage compositor**. No JS errors, no horizontal overflow, Continue always on screen. | `make selftest` |
+| Screenshots | Every screen rendered by WebKitGTK's own snapshot API (never a screen capture). | `make screens` |
+| E2E runner | `tools/e2e.py` runs (as a permanent test) against a fake QEMU that plays the install banner, LUKS prompt, login and shell, and fails fast on a silent ISO; the e2e configs validate on matching virtual hardware; the dual-boot disk preparation really creates a FAT ESP. Unattended installs wait up to 3 minutes for the network instead of failing at once (tested with a fake clock). | `make test` |
 
-**Never run:** `make iso`, the ISO boot, `cage` inside the ISO, any real
-partitioning or `pacstrap`, the installed-system boot, BIOS/GRUB path, the
-pywebview<->Python event bridge inside the live window (only the mock was
-exercised end to end). Expect first-boot issues there; see "Live-ISO risks".
+**Not verified (needs your machine, `make iso` + `make e2e-all`):** the ISO build, the
+live boot and cage on it, a real pacstrap, mkinitcpio/sd-encrypt at boot, systemd-boot and
+GRUB actually booting, os-prober inside arch-chroot, ntfsresize on a real Windows volume,
+the AUR helper build, Wi-Fi via iwctl. `make e2e-all` checks most of these automatically.
 
-## Safety: the backend cannot touch this machine's disks
+## Safety model
 
-- Real execution requires ALL of: `/run/archiso` exists, running as root,
-  `LINUSETUP_REAL=1`, and `LINUSETUP_DRY_RUN` not set (`runner.real_mode_allowed`).
-  Only the ISO's `.zlogin` sets `LINUSETUP_REAL=1`. On any normal machine the app
-  is dry-run: it builds and logs the full command plan and executes nothing.
-- A unit test asserts dry-run never calls `subprocess` and that real mode is
-  refused when the live marker is absent.
-- Disk list excludes loop/optical/zram devices and the live medium, marks disks
-  with mounted partitions or < 20 GB as unusable, and the backend re-validates the
-  chosen disk against that list (the UI is not trusted).
-- Destructive step needs a typed confirmation of the device name (e.g. `vda`).
-- Boot the ISO with `linusetup.dry` on the kernel command line to rehearse the
-  whole UI inside the VM without any changes.
+- **Dry run unless all of:** `/run/archiso` exists, running as root, `LINUSETUP_REAL=1`
+  (only the ISO's autostart sets it), `LINUSETUP_DRY_RUN` not set. A unit test asserts a
+  dry run never calls `subprocess`. Boot the ISO with `linusetup.dry` to rehearse safely.
+- **Stale-table guard:** every disk's partition table is fingerprinted when shown; the
+  install is refused if any disk it would touch changed since.
+- **Plain-language confirmation** lists every wipe, delete, shrink, create and format, and
+  requires typing the disk's name.
+- **Disk listing** never offers the live medium, marks disks with mounted partitions or
+  under 20 GB unusable, and the backend re-validates everything (the UI is not trusted).
+- **Shrinking Windows:** refuses BitLocker; always runs `ntfsresize --no-action` first and
+  never `--force` (a hibernated / Fast Startup volume fails with a clear message); keeps
+  2 GB headroom above ntfsresize's minimum; rewrites the GPT entry with the same start,
+  type GUID, unique GUID and name in one `sgdisk` call.
+- **Reused Windows ESP** is mounted at `/efi` and never reformatted; GRUB is used (systemd-boot
+  needs kernels on the ESP, which a 100 MB Windows ESP can't hold), and the removable
+  fallback loader is only installed on an ESP LinuSetup created.
+- **Secrets** (passwords, LUKS passphrase, Wi-Fi key) go to programs on stdin only, are
+  scrubbed from logs/events, and are never written to exported configs.
 
-## Scope
+## Notable technical findings
 
-- **Erase-whole-disk only.** "Install alongside Windows" is shown on NTFS disks
-  as "coming soon" and does nothing: automated NTFS resizing untested and
-  unattended is the one feature that could destroy someone's data.
-- KDE Plasma only (minimal). ext4 only (Btrfs + snapshots is a good v0.2).
-- Layout: GPT. UEFI: 1 GiB ESP at `/boot` + ext4 root, **systemd-boot**.
-  BIOS: 1 MiB `bios_grub` + ext4 root, **GRUB**. Chosen by `/sys/firmware/efi`.
-- Needs internet (pacstrap from mirrors). No Wi-Fi UI yet: wired only.
-  The welcome screen shows connectivity.
-- Locale fixed to `en_US.UTF-8`; keyboard layout chosen applies to the console
-  (`vconsole.conf`) only, not yet to the Plasma session.
+- **GPU vendor detection bug (fixed):** the vendor check matched "ati" inside "Intel Corpor*ati*on",
+  so every Intel GPU was treated as AMD and would have got AMD drivers. Now whole-word matching on
+  lspci's vendor field, with a regression test.
 
-## Installed system choices
+- **mkinitcpio 42 defaults to a systemd initramfs** (`base systemd … sd-vconsole …`) and
+  ships microcode as a hook. LinuSetup always writes an explicit drop-in in
+  `/etc/mkinitcpio.conf.d/`, adds `sd-encrypt` for encrypted `/`, drops `kms` for NVIDIA,
+  and boot entries need no separate microcode initrd.
+- **releng's `pacman.conf` has `[multilib]` commented out** and mkarchiso does not copy the
+  profile's `pacman.conf` into the image, so `iso/build.sh` ships an edited copy via airootfs.
+- **pywebview serves the page from its own local HTTP server**, not `file://`. The
+  previous UI started talking to the wrong backend before pywebview was ready, which left
+  a blank window. Found by running the self-test inside real WebKitGTK; fixed in `main.js`.
+- `lsblk` reports partition `START` in 512-byte units on every disk; all positions are kept
+  in bytes and converted with the disk's logical sector size for `sgdisk`.
 
-- Microcode (`intel-ucode`/`amd-ucode`) detected from `/proc/cpuinfo`.
-- GPU drivers from `lspci`: nvidia -> `nvidia-open`, amd/intel -> mesa + vulkan.
-- Services enabled: NetworkManager, sddm, bluetooth, systemd-timesyncd (+ docker
-  for the Coding preset). Without NetworkManager/sddm the system would boot to a
-  TTY with no network.
-- User in `wheel` (+ `docker`), `/etc/sudoers.d/10-wheel`, root account locked,
-  passwords set via `chpasswd` over stdin (never in argv or logs).
-- `genfstab -U`, hostname, hosts, locale, timezone, `hwclock --systohc`.
+## Features
 
-## Gaming preset and multilib (finding)
+Guided: erase disk, use free space next to other systems, shrink Windows · ext4/Btrfs/XFS/F2FS ·
+Btrfs subvolumes, zstd/lzo, Snapper snapshots (+ grub-btrfs with GRUB) · separate /home ·
+LUKS2 (sd-encrypt; extra encrypted volumes unlock with key files) · swap: zram, swap file
+(incl. Btrfs), swap partition.
+Manual: per-disk editor: erase to fresh GPT, delete, create in free space, reuse/format
+existing partitions, any mount point, per-partition encryption, BIOS boot partitions, "suggest a layout".
+Boot: systemd-boot or GRUB (UEFI and BIOS), os-prober, several kernels (linux, lts, zen,
+hardened) with headers, kernel parameters, menu timeout.
+System: 17 profiles (8 desktops, 7 window managers, server, minimal), 4 login screens + autologin, GPU and VM driver detection,
+PipeWire, Bluetooth, printing, ufw/firewalld, SSH, NetworkManager or networkd+iwd (with Wi-Fi
+credentials carried over), 44 software bundles in 6 categories, any repo package via live search, Flatpak +
+Flathub, yay/paru, extra services, a custom post-install script, locales/keyboard (console +
+X11/Wayland + KDE)/timezone/NTP, reflector mirrors by country or custom mirrors, parallel
+downloads, multilib.
+Effects: three animation levels (Minimal / Balanced / Full) picked from the GPU name lspci
+reports (integrated, weak, mid, strong; VMs, under 4 GB RAM or 2 threads force Minimal), stepped
+down when the measured frame rate is low, switchable from the header badge, forceable with
+`linusetup.effects=` on the ISO. WebKit GPU compositing is now only disabled in VMs or without a
+GPU render node (it was off everywhere, so every animation was painted by the CPU). Classifier
+tested against 34 real pci.ids names.
+UX: Easy (4 questions) and Advanced (9 sections, live validation per section) share one
+review screen with every command visible; save/load configs; Wi-Fi from the installer;
+unattended installs from QEMU fw_cfg; after-install restart/power-off.
 
-`/usr/share/archiso/configs/releng/pacman.conf` has `[multilib]` **commented
-out**, and `pacstrap` uses the *live* system's `/etc/pacman.conf`. mkarchiso
-(checked in `/usr/bin/mkarchiso`) uses the profile's `pacman.conf` only to
-*build* the image; it is **not** copied into it, so editing the profile copy
-alone would leave the live system without multilib and `pacstrap` would fail
-with `target not found: steam`. `iso/build.sh` therefore enables multilib in the
-profile copy (aborting if the sed fails) **and** ships that file as
-`airootfs/etc/pacman.conf`. The plan also enables it in the target's
-`pacman.conf` when a preset needs it. (Not yet confirmed inside a booted ISO:
-check `grep -A1 '^\[multilib\]' /etc/pacman.conf` there if Gaming fails.)
-
-Also checked: `sddm` depends on `xorg-server`, so the installed login screen
-has the X server it needs.
-Steam's `lib32-vulkan-driver` dependency has several providers and `pacstrap`
-runs non-interactively, so the plan always lists explicit 32-bit Vulkan packages
-(per detected GPU, or a mesa/radeon fallback in VMs) to avoid a random pick.
-
-## UI
-
-Draft B ("big cards") with animations. Constraints chosen for a software-rendered
-VM: **only `transform`/`opacity` animations**, no `backdrop-filter`, no large
-blurs, no web fonts or CDNs (works offline over `file://`), inline SVG icons
-(the ISO has no emoji font by default; `noto-fonts` is installed, icons are SVG
-anyway). `prefers-reduced-motion` is honoured, and the page auto-switches to a
-"lite" mode (no tilt/glow/floating dots) if it measures < 28 fps in its first
-second (force with `?lite`).
-Mouse features: click ripple, hover tilt with a moving highlight, cursor glow,
-custom right-click menu on preset cards (lists packages), no native context
-menu. **F2** toggles a pointer debug overlay (position + last button), useful
-when testing input in QEMU.
-Dev hooks (browser only): `index.html?mock&still&screen=disk`.
+**Left out on purpose** (roadmap, never shown in the UI): LVM/RAID, Secure Boot/UKI,
+Limine, hibernation, an encrypted swap partition, resizing non-NTFS partitions, editing MBR
+tables (erase converts to GPT), WPA-Enterprise Wi-Fi, custom repositories, a translated UI.
 
 ## Live-ISO risks (look here first)
 
-1. **cage fails with a session/seat error as root.** `seatd` is installed and
-   enabled in the image; `.zlogin` sets `LIBSEAT_BACKEND=logind`. If cage
-   complains, change it to `seatd` in `iso/build.sh`.
-2. **Blank/black WebKit view in a GL-less VM.** Mitigated with
-   `WEBKIT_DISABLE_COMPOSITING_MODE=1` and `WEBKIT_DISABLE_DMABUF_RENDERER=1`
-   (both strings confirmed present in the installed webkit2gtk 2.52 library).
-3. **Pointer invisible/offset.** `WLR_NO_HARDWARE_CURSORS=1` + QEMU `usb-tablet`
-   (absolute pointer). Press F2 in the app to see what coordinates it receives.
-4. **Debugging a dead kiosk.** Boot with `linusetup.shell` on the kernel command
-   line to skip the autostart and get the normal root shell; the app log is
-   `/tmp/linusetup.log`. Run `cd /opt && python -m linusetup --windowed` from a
-   shell to retry.
-5. **pacstrap progress** is parsed from pacman's `(n/total)` lines; if the format
-   differs the bar just jumps at step boundaries (cosmetic).
-6. `bootctl install` inside arch-chroot needs efivars; if it warns in the VM,
-   the fallback path `EFI/BOOT/BOOTX64.EFI` is still installed.
-
-## Next steps (suggested order)
-
-1. Run it in the VM (README), fix whatever the risks above turn up.
-2. Wi-Fi picker (iwd/NetworkManager) on the welcome screen.
-3. Btrfs + snapper option; apply keyboard layout to Plasma.
-4. Alongside-Windows (needs resize with `ntfsresize`/`parted`, tested on throwaway images first).
-5. Offline package cache in the ISO.
+1. **`make iso` failed with "invalid or corrupted package (PGP signature)"** for 29 packages,
+   all reused from the host's `/var/cache/pacman/pkg` (the 528 freshly downloaded ones were fine).
+   pacman, run non-interactively by mkarchiso, deleted them, so the cause is unknown: they were
+   downloaded and verified days earlier; the rest of the cache, all boot-critical installed files
+   and the kernel log were clean. Now: the build uses its own cache (`build/pkgcache`), downloads
+   with curl, and `tools/verify_pkgcache.py` checks every file against the repo database and
+   **moves** damaged ones to `build/quarantine/<time>/` with a REPORT.txt (zero-byte runs suggest
+   a power cut or the disk; scattered changes suggest RAM). Fresh copies are then downloaded.
+2. **cage fails with a seat/session error** → in `iso/build.sh` change
+   `LIBSEAT_BACKEND=logind` to `seatd` (seatd is installed and enabled).
+3. **Blank WebKit view** → both `WEBKIT_DISABLE_COMPOSITING_MODE` and
+   `WEBKIT_DISABLE_DMABUF_RENDERER` are set; the UI also drops decorative effects when it
+   measures under 28 fps. GUI log: `/var/log/linusetup-gui.log`.
+4. **Debug escape hatch:** boot with `linusetup.shell` for a plain root shell.
+5. **os-prober** sometimes finds nothing inside arch-chroot; the Done screen tells the user
+   to run `grub-mkconfig` once after the first boot.

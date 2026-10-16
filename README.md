@@ -1,53 +1,88 @@
 # LinuSetup
 
-A friendly, mouse-first graphical installer for Arch Linux with its own live ISO.
-UI: pywebview on **WebKitGTK** (no Chromium) inside a `cage` Wayland kiosk.
-Engine: plain Python that builds a command plan and runs it (dry-run by default).
+A graphical Arch Linux installer with its own live ISO. **Easy mode** asks four friendly
+questions; **Advanced mode** exposes everything archinstall can do (and a manual partition
+editor). Then you go touch grass while it installs.
 
-See [DECISIONS.md](DECISIONS.md) for scope, safety design and known risks.
+- UI: pywebview on **WebKitGTK** (no Chromium) in a `cage` kiosk on the ISO. Mouse-first,
+  animated, keyboard friendly, works from 800×600 up.
+- Engine: plain Python. Builds the whole install as an explicit command plan (shown on the
+  review screen), then runs it. Dry run everywhere except the live ISO.
 
-## Run commands in a normal terminal
+See **[DECISIONS.md](DECISIONS.md)** for what was verified and how, the safety model, and known risks.
 
-Use `/usr/bin/python`, not the project `.venv` (it cannot see system `gi`/`webview`).
-Install once: `sudo pacman -S --needed python-pywebview python-gobject webkit2gtk-4.1 archiso qemu-desktop edk2-ovmf cage`
+## Try it now (no ISO needed)
 
 ```bash
-make test      # engine unit tests (13)
-make dev       # real window on your desktop, ALWAYS dry-run on your machine
-make preview   # open the UI in your browser with a mock backend (design iteration)
-
-make iso       # build the live ISO into out/ (asks for your sudo password)
-make vm        # boot it in QEMU, UEFI, with an empty 30 GB virtual target disk
-make vm-boot   # after installing: boot the installed system from the virtual disk
-make vm-bios   # same as vm, legacy BIOS (exercises the GRUB path)
-make vm-reset  # throw away the virtual disk to install again
+make demo       # the real window with pretend hardware: a Windows disk, a BitLocker disk...
+make dev        # the real window reading THIS machine (always a dry run here)
+make preview    # same UI in your browser: http://127.0.0.1:8765
 ```
 
-### First run in the VM, step by step
+Use `/usr/bin/python`, not the project `.venv` (it can't see the system `gi`/`webview`). Install once:
 
-1. `make iso`, then `make vm`. The installer should appear full screen.
-2. Press **F2** to show the pointer overlay: move/click/right-click, check it follows the mouse.
-3. To rehearse safely first, add `linusetup.dry` to the kernel command line
-   (press `e` in the boot menu); the whole flow runs without changing anything.
-4. Walk the wizard, type the disk name to confirm, watch the install, then
-   `make vm-boot` to boot what you installed.
+```bash
+sudo pacman -S --needed python-pywebview python-gobject webkit2gtk-4.1 archiso qemu-desktop edk2-ovmf cage
+```
 
-If the screen stays on a text console, see "Live-ISO risks" in DECISIONS.md
-(boot with `linusetup.shell` to get a shell; log at `/tmp/linusetup.log`).
+## Build and test the ISO
+
+```bash
+make iso        # build out/*.iso (asks for sudo; fast zstd). RELEASE=1: small xz build
+make vm         # boot it in QEMU (UEFI) with an empty 30 GB virtual disk; vm-bios for legacy BIOS.
+                # Downloads go through a caching mirror on your PC (tools/pkgproxy.py, build/vmcache):
+                # the first VM install downloads normally, every later one installs from disk.
+make vm-boot    # boot what you installed
+make e2e        # fully unattended: install tests/e2e/ext4-uefi.json, boot it, log in, check it
+make e2e-all    # all five scenarios (ext4+systemd-boot, Btrfs+LUKS+snapshots, BIOS+GRUB+XFS,
+                # dual boot next to a Windows-like disk, full KDE desktop)
+```
+
+`make e2e CONFIG=tests/e2e/btrfs-luks.json` runs one scenario. Logs and a `result.json`
+land in `build/e2e/<name>/`. It types the LUKS passphrase and the login over the serial
+console, then checks hostname, root filesystem, sudo and failed systemd units.
+
+In the VM: press **F2** for a pointer overlay. Add `linusetup.dry` to the kernel command line to
+rehearse without changes, or `linusetup.shell` for a plain shell.
+
+## Develop
+
+```bash
+make test       # 69 tests: layout, real-sgdisk image tests, 300+ config plan matrix,
+                # package resolution, API/CLI, e2e runner (1-2 minutes)
+make filesdb    # once: download repo file lists so the systemd-unit test runs too
+make selftest   # clicks through the whole UI headlessly: Firefox at 3 sizes + real WebKitGTK
+make screens    # WebKitGTK screenshots of every screen -> build/screens/
+python -m linusetup plan  my.json --fixtures   # print every command an install would run
+python -m linusetup check my.json              # validate a saved config
+```
 
 ## Layout
 
 ```
 linusetup/
-  app.py              pywebview window + js_api (no install logic)
-  installer/          pure engine, no UI imports
-    hardware.py       read-only detection: UEFI, CPU, GPU, disks, network
-    presets.py        packages per use-case + GPU drivers
-    config.py         user input + validation
-    plan.py           config + hardware -> ordered steps (pure)
-    runner.py         executes a plan; dry-run unless on the live ISO
-  ui/                 index.html, css/app.css, js/app.js (offline, no CDN)
-iso/build.sh          releng profile + overlay -> ISO
-design/               the three early design drafts
-tests/                unit tests
+  app.py, api.py        pywebview window + the one API the UI talks to
+  devserver.py          dev server: same API over HTTP, fixture hardware
+  installer/            the engine (no UI imports)
+    catalog.py          profiles, software, drivers, keyboards, mirrors
+    config.py           the config document, defaults, secret stripping
+    system.py           hardware, disks, Wi-Fi, package search (read-only)
+    fixtures.py         pretend hardware for development and tests
+    disks.py            partition-table model, free space, fingerprints
+    layout.py           disk choices -> exact partition operations
+    packages.py         config + hardware -> packages, services, groups
+    plan.py             everything -> ordered commands
+    validate.py         whole-config validation, grouped by UI section
+    runner.py           executes a plan (dry run unless on the ISO)
+  ui/                   index.html, css/app.css, js/*.js (no CDN, works offline)
+iso/build.sh            releng + our overlay -> ISO
+tools/                  e2e.py, selftest.sh, screens.sh, snap.py
+tests/                  unit/image/package tests, e2e configs
+design/                 the three early design drafts
 ```
+
+## License
+
+LinuSetup is free software under the [GNU General Public License v3.0 or later](LICENSE).
+The ISO is built from official Arch Linux packages with archiso; it is not an official
+Arch Linux release.

@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "disk": {
+    "mode": "guided",
+    "device": "/dev/vda",
+    "scope": "wipe",
+    "fs": "btrfs",
+    "btrfs": {
+      "subvolumes": true,
+      "compress": "zstd",
+      "snapshots": true
+    },
+    "encryption": {
+      "enabled": true,
+      "passphrase": "e2e-luks-pass"
+    }
+  },
+  "kernel_params": "console=tty0 console=ttyS0,115200 loglevel=3",
+  "users": [
+    {
+      "username": "tester",
+      "fullname": "E2E Tester",
+      "password": "e2e-Passw0rd",
+      "sudo": true
+    }
+  ],
+  "profiles": [
+    "minimal"
+  ],
+  "software": [],
+  "bluetooth": false,
+  "timezone": "UTC",
+  "mirrors": {
+    "mode": "auto"
+  },
+  "swap": {
+    "mode": "swapfile",
+    "size_gb": 1
+  },
+  "kernels": [
+    "linux",
+    "linux-lts"
+  ],
+  "hostname": "e2e-btrfs"
+}
