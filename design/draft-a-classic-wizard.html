@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinuSetup Draft A - Classic Wizard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#f3f5f9; --card:#fff; --fg:#1b2130; --mut:#6b7488; --acc:#2f6bff; --line:#e2e6ee; --side:#161b2b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e111a; --card:#171c2a; --fg:#e8ebf3; --mut:#8c95aa; --line:#262d40; --side:#0a0d15; } }
+  * { box-sizing:border-box; }
+  body { margin:0; height:100vh; display:grid; grid-template-columns:240px 1fr; background:var(--bg); color:var(--fg); font:15px system-ui,sans-serif; }
+  aside { background:var(--side); color:#cfd5e6; padding:28px 20px; display:flex; flex-direction:column; }
+  .logo { font-weight:700; font-size:20px; color:#fff; margin-bottom:32px; } .logo b { color:var(--acc); }
+  .step { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; cursor:pointer; margin-bottom:4px; opacity:.6; }
+  .step:hover { opacity:1; background:#ffffff10; }
+  .step.on { opacity:1; background:#ffffff18; color:#fff; }
+  .step i { width:24px; height:24px; border-radius:50%; border:1.5px solid currentColor; display:grid; place-items:center; font:600 12px system-ui; font-style:normal; }
+  .step.done i { background:var(--acc); border-color:var(--acc); color:#fff; }
+  main { display:grid; place-items:center; padding:24px; }
+  .card { width:min(640px,100%); background:var(--card); border:1px solid var(--line); border-radius:16px; padding:36px; box-shadow:0 10px 40px #0001; }
+  h1 { margin:0 0 6px; font-size:26px; } p.sub { margin:0 0 24px; color:var(--mut); }
+  .panel { display:none; } .panel.on { display:block; }
+  .opt { display:flex; align-items:center; gap:14px; padding:14px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:10px; cursor:pointer; }
+  .opt:hover { border-color:var(--acc); } .opt.sel { border-color:var(--acc); background:#2f6bff14; }
+  .opt small { display:block; color:var(--mut); }
+  input { width:100%; padding:12px; margin-bottom:12px; border-radius:10px; border:1.5px solid var(--line); background:transparent; color:inherit; font:inherit; }
+  .nav { display:flex; justify-content:space-between; margin-top:28px; }
+  button { border:0; border-radius:10px; padding:11px 22px; font:600 15px system-ui; cursor:pointer; }
+  .pri { background:var(--acc); color:#fff; } .pri:hover { filter:brightness(1.1); }
+  .sec { background:transparent; color:var(--mut); } .sec:hover { color:var(--fg); }
+  dl { display:grid; grid-template-columns:120px 1fr; gap:8px; margin:0; } dt { color:var(--mut); } dd { margin:0; font-weight:600; }
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo">Linu<b>Setup</b></div>
+  <div class="step on" data-i="0"><i>1</i>Welcome</div>
+  <div class="step" data-i="1"><i>2</i>Disk</div>
+  <div class="step" data-i="2"><i>3</i>Account</div>
+  <div class="step" data-i="3"><i>4</i>Review</div>
+</aside>
+<main><div class="card">
+  <section class="panel on">
+    <h1>Welcome to LinuSetup</h1><p class="sub">Let's get Arch Linux onto your computer. Everything here works with the mouse.</p>
+    <div class="opt sel"><span>🐧</span><div><b>Install Arch Linux</b><small>Fresh install with the recommended setup</small></div></div>
+    <div class="opt"><span>🔧</span><div><b>Try it first</b><small>Run live without installing</small></div></div>
+  </section>
+  <section class="panel">
+    <h1>Where to install?</h1><p class="sub">Pick a disk. Nothing is changed until the final step.</p>
+    <div class="opt sel"><span>💽</span><div><b>Samsung SSD 980 · 500 GB</b><small>Erase disk and install (recommended)</small></div></div>
+    <div class="opt"><span>💽</span><div><b>WD Blue HDD · 1 TB</b><small>Has Windows, install alongside</small></div></div>
+  </section>
+  <section class="panel">
+    <h1>Create your account</h1><p class="sub">You'll use this to sign in.</p>
+    <input placeholder="Your name"><input placeholder="Computer name"><input type="password" placeholder="Password">
+  </section>
+  <section class="panel">
+    <h1>Ready to install</h1><p class="sub">Review your choices.</p>
+    <dl><dt>Disk</dt><dd>Samsung SSD 980 (erased)</dd><dt>Desktop</dt><dd>KDE Plasma</dd><dt>Filesystem</dt><dd>Btrfs + snapshots</dd></dl>
+  </section>
+  <div class="nav"><button class="sec" id="back">Back</button><button class="pri" id="next">Next</button></div>
+</div></main>
+<script>
+const steps=[...document.querySelectorAll('.step')], panels=[...document.querySelectorAll('.panel')]; let i=0;
+function go(n){ i=Math.max(0,Math.min(panels.length-1,n));
+  panels.forEach((p,k)=>p.classList.toggle('on',k==i));
+  steps.forEach((s,k)=>{s.classList.toggle('on',k==i); s.classList.toggle('done',k<i);});
+  document.getElementById('next').textContent = i==panels.length-1 ? 'Install' : 'Next';
+  document.getElementById('back').style.visibility = i? 'visible':'hidden'; }
+document.getElementById('next').onclick=()=>go(i+1); document.getElementById('back').onclick=()=>go(i-1);
+steps.forEach(s=>s.onclick=()=>go(+s.dataset.i));
+document.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{o.parentNode.querySelectorAll('.opt').forEach(x=>x.classList.remove('sel'));o.classList.add('sel');});
+go(0);
+</script>
+</body>
+</html>

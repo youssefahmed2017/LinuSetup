@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinuSetup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="decor" id="decor"></div>
+<div id="glow"></div>
+<canvas id="fx"></canvas>
+
+<div class="app">
+  <header class="top">
+    <div class="logo">Linu<b>Setup</b></div>
+    <div class="dots" id="dots"></div>
+    <div class="badges" id="badges"></div>
+  </header>
+
+  <main id="stage">
+    <section class="screen" data-screen="welcome">
+      <div class="mark st"><svg viewBox="0 0 24 24"><path d="M12 3c-2.2 0-3.5 2-3.5 4.5 0 1.5-.5 2.5-1.5 4C5.700 13.500 5 15 5 16.500 5 19 8 21 12 21s7-2 7-4.500c0-1.500-.7-3-2-5-1-1.500-1.500-2.500-1.500-4C15.500 5 14.200 3 12 3Z"/><path d="M10 8.500h.01M14 8.500h.01M10.500 11.500c.8.6 2.200.6 3 0"/></svg></div>
+      <h1 class="st">Let's put <span class="grad">Linux</span> on this machine</h1>
+      <p class="sub st">A few clicks and you'll have a complete Arch Linux desktop. Everything here works with your mouse.</p>
+      <div class="checks st" id="checks"></div>
+    </section>
+
+    <section class="screen" data-screen="vibe">
+      <h1 class="st">What will you <span class="grad">use it for?</span></h1>
+      <p class="sub st">Pick any that fit. We'll add the right apps and drivers. Right-click a card to see what's inside.</p>
+      <div class="grid" id="vibes"></div>
+      <div class="hint st">KDE Plasma desktop, web browser and sound are always included.</div>
+    </section>
+
+    <section class="screen" data-screen="disk">
+      <h1 class="st">Where should it <span class="grad">live?</span></h1>
+      <p class="sub st">The disk you pick will be completely erased. Nothing happens until you confirm on the last step.</p>
+      <div class="disks" id="disks"></div>
+      <div class="hint st" id="disk-note"></div>
+    </section>
+
+    <section class="screen" data-screen="you">
+      <h1 class="st">Now, <span class="grad">who are you?</span></h1>
+      <p class="sub st">This creates your account on the new system.</p>
+      <div class="form st">
+        <div class="field" id="f-fullname"><label>Your name</label><input id="fullname" autocomplete="off" placeholder="Sam Rivera"></div>
+        <div class="field" id="f-username"><label>Username</label><input id="username" autocomplete="off" placeholder="sam"><div class="msg"></div></div>
+        <div class="field" id="f-password"><label>Password</label><input id="password" type="password"><div class="meter"><i id="meter"></i></div></div>
+        <div class="field" id="f-password2"><label>Repeat password</label><input id="password2" type="password"><div class="msg"></div></div>
+        <div class="field" id="f-hostname"><label>Computer name</label><input id="hostname" autocomplete="off" value="linusetup"><div class="msg"></div></div>
+        <div class="field"><label>Keyboard layout</label><select id="keymap"></select></div>
+        <div class="field wide"><label>Timezone</label><select id="timezone"></select></div>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="install">
+      <div class="install st">
+        <h1 id="inst-title">Installing…</h1>
+        <p class="sub" id="inst-sub">This takes a few minutes. You can watch the details below.</p>
+        <div class="track"><div class="fill" id="fill"></div></div>
+        <div class="pct"><span id="inst-step">Starting</span><span id="inst-pct">0%</span></div>
+        <div class="steps" id="steps"></div>
+        <button class="link" id="log-toggle">Show details</button>
+        <pre id="log" class="hidden"></pre>
+        <div class="errbox hidden" id="errbox"></div>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="done">
+      <svg class="big-check" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"/><path d="M30 52l14 14 27-30"/></svg>
+      <h1>All <span class="grad">done!</span></h1>
+      <p class="sub" id="done-sub">Remove the install medium and restart to meet your new system.</p>
+      <div class="note hidden" id="dry-note">Dry run: nothing was installed or changed on this machine.</div>
+    </section>
+  </main>
+
+  <footer>
+    <button class="btn ghost" id="back">Back</button>
+    <button class="btn" id="next">Continue</button>
+  </footer>
+</div>
+
+<div id="modal"><div class="dlg">
+  <h2>Erase this disk and install?</h2>
+  <dl id="sum"></dl>
+  <div class="field"><label id="confirm-label"></label><input id="confirm" autocomplete="off" placeholder=""></div>
+  <div class="row"><button class="btn ghost" id="m-cancel">Cancel</button><button class="btn danger" id="m-go" disabled>Erase and install</button></div>
+</div></div>
+<div id="ctx"></div>
+<div id="dbg" class="hidden"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

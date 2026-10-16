@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinuSetup Draft B - Big Cards</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0b0d14; --card:#151926; --fg:#f1f3fa; --mut:#8b93ab; --a:#8b5cf6; --b:#22d3ee; --line:#252b3f; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:radial-gradient(1200px 600px at 20% -10%, #8b5cf633, transparent), radial-gradient(900px 500px at 100% 110%, #22d3ee22, transparent), var(--bg);
+         color:var(--fg); font:16px system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; padding:32px 20px; }
+  .top { display:flex; gap:10px; margin-bottom:36px; }
+  .dot { width:44px; height:6px; border-radius:6px; background:var(--line); cursor:pointer; transition:.2s; }
+  .dot.on { background:linear-gradient(90deg,var(--a),var(--b)); width:72px; }
+  h1 { font-size:38px; margin:0 0 8px; text-align:center; letter-spacing:-.02em; }
+  .sub { color:var(--mut); margin:0 0 36px; text-align:center; }
+  .panel { display:none; width:min(980px,100%); } .panel.on { display:block; animation:in .35s; }
+  @keyframes in { from { opacity:0; transform:translateY(12px); } }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:18px; }
+  .big { background:var(--card); border:2px solid var(--line); border-radius:22px; padding:28px 22px; cursor:pointer; text-align:center; transition:.18s; }
+  .big:hover { transform:translateY(-4px); border-color:#8b5cf688; }
+  .big.sel { border-color:var(--a); box-shadow:0 0 0 4px #8b5cf633, 0 14px 40px #8b5cf622; }
+  .big .e { font-size:54px; display:block; margin-bottom:12px; } .big b { font-size:19px; } .big small { display:block; color:var(--mut); margin-top:6px; }
+  .disk { display:flex; align-items:center; gap:18px; background:var(--card); border:2px solid var(--line); border-radius:18px; padding:20px; margin-bottom:14px; cursor:pointer; }
+  .disk.sel { border-color:var(--b); box-shadow:0 0 0 4px #22d3ee22; } .disk .e { font-size:36px; } .disk small { color:var(--mut); display:block; }
+  .bar { height:10px; border-radius:6px; background:var(--line); margin-top:8px; overflow:hidden; width:260px; } .bar i { display:block; height:100%; width:40%; background:var(--b); }
+  .prog { background:var(--card); border-radius:22px; padding:36px; text-align:center; }
+  .track { height:14px; background:var(--line); border-radius:10px; overflow:hidden; margin:22px 0 10px; } .track i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--a),var(--b)); transition:width .4s; }
+  .foot { margin-top:40px; display:flex; gap:12px; }
+  button { border:0; border-radius:14px; padding:14px 30px; font:600 16px system-ui; cursor:pointer; }
+  .go { background:linear-gradient(90deg,var(--a),var(--b)); color:#fff; } .go:hover { filter:brightness(1.12); } .ghost { background:var(--card); color:var(--mut); } .ghost:hover { color:var(--fg); }
+</style>
+</head>
+<body>
+<div class="top"><div class="dot on"></div><div class="dot"></div><div class="dot"></div></div>
+
+<section class="panel on">
+  <h1>What will you use it for?</h1><p class="sub">Pick one or more. We'll set up the right apps and drivers.</p>
+  <div class="grid">
+    <div class="big sel"><span class="e">🎮</span><b>Gaming</b><small>Steam, GPU drivers, Proton</small></div>
+    <div class="big"><span class="e">💻</span><b>Coding</b><small>Git, Docker, editors</small></div>
+    <div class="big"><span class="e">🌐</span><b>Everyday</b><small>Browser, office, media</small></div>
+    <div class="big"><span class="e">🎨</span><b>Creating</b><small>Blender, Krita, OBS</small></div>
+  </div>
+</section>
+
+<section class="panel">
+  <h1>Where should it live?</h1><p class="sub">Your files on other disks stay untouched.</p>
+  <div class="disk sel"><span class="e">⚡</span><div><b>Samsung SSD 980 · 500 GB</b><small>Empty. Perfect.</small></div></div>
+  <div class="disk"><span class="e">💾</span><div><b>WD Blue · 1 TB</b><small>Windows found. We can install alongside it.</small><div class="bar"><i></i></div></div></div>
+</section>
+
+<section class="panel">
+  <div class="prog"><h1>Installing…</h1><p class="sub" id="msg">Preparing disk</p>
+    <div class="track"><i id="fill"></i></div><small id="pct" style="color:var(--mut)">0%</small></div>
+</section>
+
+<div class="foot"><button class="ghost" id="back">Back</button><button class="go" id="next">Continue</button></div>
+<script>
+const panels=[...document.querySelectorAll('.panel')], dots=[...document.querySelectorAll('.dot')]; let i=0, t;
+function go(n){ i=Math.max(0,Math.min(2,n)); panels.forEach((p,k)=>p.classList.toggle('on',k==i)); dots.forEach((d,k)=>d.classList.toggle('on',k==i));
+  back.style.visibility=i&&i<2?'visible':'hidden'; next.style.display=i==2?'none':''; next.textContent=i==1?'Install':'Continue';
+  clearInterval(t); if(i==2){ let p=0; const m=['Preparing disk','Installing base system','Installing desktop','Setting up bootloader','Finishing up'];
+    t=setInterval(()=>{p=Math.min(100,p+2); fill.style.width=p+'%'; pct.textContent=p+'%'; msg.textContent=m[Math.min(4,p/20|0)]; if(p==100){msg.textContent='Done! Ready to reboot 🎉';clearInterval(t);}},120);} }
+next.onclick=()=>go(i+1); back.onclick=()=>go(i-1); dots.forEach((d,k)=>d.onclick=()=>go(k));
+document.querySelectorAll('.panel:nth-of-type(1) .big').forEach(c=>c.onclick=()=>c.classList.toggle('sel'));
+document.querySelectorAll('.disk').forEach(d=>d.onclick=()=>{document.querySelectorAll('.disk').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');});
+go(0);
+</script>
+</body>
+</html>

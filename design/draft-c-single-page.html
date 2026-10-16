@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinuSetup Draft C - Single Page</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#14161c; --pan:#1c1f28; --fg:#e9ebf1; --mut:#8a90a2; --acc:#3ddc97; --win:#4f7cff; --line:#2a2e3a; }
+  * { box-sizing:border-box; }
+  body { margin:0; height:100vh; display:grid; grid-template-columns:1fr 340px; background:var(--bg); color:var(--fg); font:15px/1.5 ui-sans-serif,system-ui,sans-serif; }
+  .scroll { overflow-y:auto; padding:40px 48px 80px; scroll-behavior:smooth; }
+  header { display:flex; align-items:baseline; gap:12px; margin-bottom:32px; } header h1 { margin:0; font-size:22px; } header span { color:var(--mut); }
+  section { margin-bottom:44px; max-width:680px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.12em; color:var(--acc); margin:0 0 14px; }
+  .disk { height:64px; display:flex; border-radius:12px; overflow:hidden; border:1px solid var(--line); }
+  .seg { display:grid; place-items:center; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; transition:flex .15s; }
+  .seg.win { background:var(--win); flex:0 0 35%; } .seg.lin { background:var(--acc); color:#06281a; flex:1; } .seg.free { background:#2d3240; color:var(--mut); flex:0 0 15%; }
+  .slider { margin:18px 0 6px; display:flex; align-items:center; gap:14px; } input[type=range] { flex:1; accent-color:var(--acc); height:28px; cursor:ew-resize; }
+  .hint { color:var(--mut); font-size:13px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; } .chip { padding:9px 16px; border-radius:999px; border:1.5px solid var(--line); background:var(--pan); cursor:pointer; user-select:none; }
+  .chip:hover { border-color:var(--acc); } .chip.sel { background:var(--acc); color:#06281a; border-color:var(--acc); font-weight:600; }
+  input[type=text], input[type=password] { background:var(--pan); border:1.5px solid var(--line); border-radius:10px; color:inherit; padding:11px 14px; font:inherit; width:250px; margin:0 10px 10px 0; } input:focus { outline:0; border-color:var(--acc); }
+  aside { background:var(--pan); border-left:1px solid var(--line); padding:32px 26px; display:flex; flex-direction:column; }
+  aside h3 { margin:0 0 18px; } .sum { flex:1; } .sum div { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); } .sum span:first-child { color:var(--mut); }
+  .install { margin-top:20px; background:var(--acc); color:#06281a; border:0; border-radius:12px; padding:15px; font:700 16px system-ui; cursor:pointer; } .install:hover { filter:brightness(1.1); }
+  .warn { font-size:12px; color:var(--mut); margin-top:10px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="scroll">
+  <header><h1>LinuSetup</h1><span>one page, no wizard. Everything updates live on the right →</span></header>
+
+  <section><h2>1 · Disk</h2>
+    <div class="disk"><div class="seg win" id="w">Windows 350 GB</div><div class="seg lin" id="l">Linux</div><div class="seg free">Free</div></div>
+    <div class="slider"><span class="hint">Windows</span><input type="range" id="r" min="100" max="700" value="350" step="10"><span class="hint">Linux</span></div>
+    <div class="hint">Drag the slider to resize. Nothing is changed until you press Install.</div></section>
+
+  <section><h2>2 · Desktop</h2>
+    <div class="row" id="de"><div class="chip sel">KDE Plasma</div><div class="chip">GNOME</div><div class="chip">XFCE</div><div class="chip">None</div></div></section>
+
+  <section><h2>3 · Extras</h2>
+    <div class="row" id="ex"><div class="chip sel">Steam</div><div class="chip">Docker</div><div class="chip sel">Flatpak</div><div class="chip">Snapshots</div><div class="chip">Printer support</div></div></section>
+
+  <section><h2>4 · You</h2>
+    <input type="text" id="u" placeholder="Username"><input type="text" id="h" placeholder="Computer name"><input type="password" placeholder="Password"></section>
+</div>
+
+<aside><h3>Your install</h3>
+  <div class="sum">
+    <div><span>Linux size</span><span id="s1">350 GB</span></div>
+    <div><span>Desktop</span><span id="s2">KDE Plasma</span></div>
+    <div><span>Extras</span><span id="s3">Steam, Flatpak</span></div>
+    <div><span>User</span><span id="s4">-</span></div>
+    <div><span>Est. time</span><span>~12 min</span></div>
+  </div>
+  <button class="install" onclick="alert('Mockup only')">Install Arch Linux</button>
+  <div class="warn">Right-click any option for details</div>
+</aside>
+<script>
+const r=document.getElementById('r');
+r.oninput=()=>{ const lin=+r.value, win=800-lin; w.style.flex='0 0 '+(win/8)+'%'; w.textContent='Windows '+win+' GB'; l.textContent='Linux '+lin+' GB'; s1.textContent=lin+' GB'; };
+r.value=450; r.oninput();
+document.querySelectorAll('#de .chip').forEach(c=>c.onclick=()=>{document.querySelectorAll('#de .chip').forEach(x=>x.classList.remove('sel'));c.classList.add('sel');s2.textContent=c.textContent;});
+document.querySelectorAll('#ex .chip').forEach(c=>c.onclick=()=>{c.classList.toggle('sel');s3.textContent=[...document.querySelectorAll('#ex .sel')].map(x=>x.textContent).join(', ')||'none';});
+u.oninput=()=>s4.textContent=u.value||'-';
+document.addEventListener('contextmenu',e=>{ if(e.target.closest('.chip')){e.preventDefault();alert('Details for: '+e.target.textContent);} });
+</script>
+</body>
+</html>
